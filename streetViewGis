@@ -1,0 +1,661 @@
+# cvcStreetView GIS.md
+
+# CVC StreetView GIS — concept note
+
+Status: early concept / roadmap idea  
+Related projects: ComputerVisionCounter_Images, future CVC Core, possible CVC Lab module  
+Main idea: use semantic segmentation on geotagged street-level images, including 360° panoramas, to map how people visually experience a city or landscape.
+
+---
+
+## Core idea
+
+Classic GIS and remote sensing usually answer:
+
+```text
+What exists on the ground when viewed from above?
+```
+
+CVC StreetView GIS would answer:
+
+```text
+What does a person see from this place?
+```
+
+Instead of counting objects, this module would calculate visual composition of many geotagged images.
+
+For each image or panorama:
+
+```text
+vegetation: 34%
+road: 22%
+sidewalk: 14%
+building: 18%
+sky: 10%
+terrain: 2%
+```
+
+Then attach those statistics to:
+
+- GPS position,
+- direction / azimuth,
+- time,
+- camera type,
+- route,
+- street segment,
+- optional observation context.
+
+The result could be mapped and analyzed in QGIS or another GIS environment.
+
+---
+
+## Why this is interesting
+
+This is not a replacement for land cover maps, orthophotos or NMD-style datasets.
+
+It is a complementary human-view layer.
+
+Examples:
+
+```text
+A park hidden behind a wall:
+- top-down GIS: much vegetation
+- human-view GIS: little visible vegetation
+
+A street with tree crowns:
+- top-down GIS: road corridor with trees
+- human-view GIS: high perceived greenery and shade
+
+A paved square with small trees:
+- top-down GIS: some green elements
+- human-view GIS: mostly hard surface, buildings and sky
+```
+
+This could help describe the visual experience of a city, not only its physical land cover.
+
+---
+
+## Possible project names
+
+Working names:
+
+```text
+CVC StreetView GIS
+CVC Visual Landscape
+CVC Human View Index
+CVC Street-Level Landscape Index
+Visual Landscape Index
+Human-view city mapping
+```
+
+Recommended internal name for now:
+
+```text
+CVC StreetView GIS
+```
+
+---
+
+## Data sources
+
+Possible image sources:
+
+- own geotagged photos,
+- 360° camera images,
+- Mapillary-like street-level imagery, if API/license permits,
+- other street-level imagery where licensing allows analysis,
+- controlled field routes recorded by user.
+
+Important: before using Mapillary or any third-party imagery at scale, API terms, licensing and allowed processing must be checked.
+
+---
+
+## Why 360° camera is especially useful
+
+The user has access to a 360° camera. This is highly relevant.
+
+Normal photos are strongly direction-dependent:
+
+```text
+same point + different direction = different visual composition
+```
+
+A 360° panorama gives a more complete observation around a point.
+
+Advantages:
+
+- reduced direction bias,
+- full visual context around an observation point,
+- better approximation of what is visible from a place,
+- possible split into directional sectors,
+- possible front/back/left/right statistics,
+- possible azimuth-based analysis.
+
+A 360° image can be processed in several ways:
+
+```text
+1. Full panorama analysis
+   Calculate class percentages for the whole panorama.
+
+2. Sector analysis
+   Split panorama into sectors, e.g. 4, 8 or 12 directions.
+
+3. Directional samples
+   Extract perspective views from selected azimuths and process them like normal images.
+
+4. Route-based analysis
+   Use camera path and direction to aggregate visual statistics along streets or trails.
+```
+
+Example sector output:
+
+```text
+point_id
+azimuth_start
+azimuth_end
+vegetation_percent
+road_percent
+building_percent
+sky_percent
+sidewalk_percent
+```
+
+This would be more GIS-useful than one single number per point.
+
+---
+
+## Basic processing pipeline
+
+```text
+1. Collect images
+   - own photos
+   - 360° panoramas
+   - optional external street-level imagery
+
+2. Read metadata
+   - GPS position
+   - timestamp
+   - heading / azimuth if available
+   - camera type
+   - image ID
+
+3. Run semantic segmentation
+   - classify pixels into available model classes
+   - calculate class percentages
+
+4. Store per-image results
+   - CSV
+   - GeoJSON
+   - GeoPackage
+   - optional mask images
+
+5. Aggregate spatially
+   - by street segment
+   - by point clusters
+   - by grid / hexagons
+   - by route
+   - by neighborhood / area
+
+6. Visualize
+   - QGIS maps
+   - heatmaps
+   - street segment styling
+   - HTML reports
+```
+
+---
+
+## Possible semantic classes
+
+With common urban semantic segmentation models, useful classes may include:
+
+```text
+road
+sidewalk
+building
+wall
+fence
+pole
+traffic light
+traffic sign
+vegetation
+terrain
+sky
+person
+rider
+car
+truck
+bus
+train
+motorcycle
+bicycle
+```
+
+Most valuable classes for GIS-style analysis:
+
+```text
+vegetation
+road
+sidewalk
+building
+terrain
+sky
+car / vehicle classes
+person / rider / bicycle
+```
+
+Important limitation:
+
+There may be no reliable `water` class in common Cityscapes-style pretrained models.
+
+Water may be misclassified as:
+
+```text
+road
+terrain
+sky
+vegetation
+```
+
+depending on appearance, reflection and context.
+
+For water, nature-specific classes, snow, wetlands, fields, tree species or ecological detail, a better model or custom training would be needed.
+
+---
+
+## Possible indicators
+
+The module could calculate indices such as:
+
+```text
+Green View Index
+Road Dominance Index
+Sky Openness Index
+Built-up Visual Pressure
+Pedestrian Space Visibility
+Hardscape Index
+Vegetation / Road Ratio
+Visual Comfort Index
+Urban Grey Index
+Street-Level Landscape Mosaic
+```
+
+Examples:
+
+```text
+Green View Index = vegetation pixels / all valid pixels
+
+Road Dominance Index = road pixels / all valid pixels
+
+Sky Openness Index = sky pixels / all valid pixels
+
+Built-up Visual Pressure = building + wall + fence pixels / all valid pixels
+
+Pedestrian Visibility = sidewalk pixels / all valid pixels
+
+Hardscape Index = road + sidewalk + building + wall + fence pixels / all valid pixels
+```
+
+These indicators should be treated as visual/perceived indicators, not as objective land cover.
+
+---
+
+## Relation to GTB / landscape mosaic thinking
+
+The concept is somewhat analogous to landscape mosaic or pattern analysis, but from street-level imagery.
+
+GTB / landscape mosaic style thinking:
+
+```text
+spatial pattern from top-down land cover
+```
+
+CVC StreetView GIS:
+
+```text
+visual pattern from human-view imagery
+```
+
+Possible analogy:
+
+```text
+top-down landscape mosaic:
+forest / open land / water / built-up
+
+street-level visual mosaic:
+vegetation / road / sky / buildings / sidewalks
+```
+
+This could become a useful bridge between GIS, urban planning, landscape perception and computer vision.
+
+---
+
+## Interpolation and aggregation
+
+Important methodological warning:
+
+Do not immediately treat the result as a normal continuous surface.
+
+A street-level image is directional and viewpoint-dependent.
+
+Better model:
+
+```text
+observation = point + azimuth + field of view + class percentages
+```
+
+For 360° panoramas:
+
+```text
+observation = point + full horizontal view + optional sectors
+```
+
+Recommended aggregation approaches:
+
+```text
+1. Segment-based aggregation
+   Attach average values to street segments.
+
+2. Route-based moving window
+   Smooth values along a recorded route.
+
+3. Sector-based directional analysis
+   Keep direction information from 360° images.
+
+4. Hex/grid aggregation
+   Useful for overview maps, but must be described carefully.
+
+5. Network-based interpolation
+   Prefer street-network interpolation over simple Euclidean interpolation when analyzing streets.
+```
+
+Possible outputs:
+
+```text
+street segment with average vegetation visibility
+street segment with average road dominance
+point layer with full statistics
+sector layer with directional statistics
+hex layer with aggregated visual indices
+raster heatmap for communication
+```
+
+---
+
+## 360° sector model
+
+For 360° images, a useful first design could be 8 sectors:
+
+```text
+N
+NE
+E
+SE
+S
+SW
+W
+NW
+```
+
+or numeric azimuth sectors:
+
+```text
+0-45
+45-90
+90-135
+135-180
+180-225
+225-270
+270-315
+315-360
+```
+
+Each sector can receive its own semantic statistics.
+
+Example table:
+
+```text
+image_id
+point_id
+sector_id
+azimuth_from
+azimuth_to
+vegetation_pct
+road_pct
+building_pct
+sky_pct
+sidewalk_pct
+terrain_pct
+dominant_class
+```
+
+This would allow maps like:
+
+```text
+green view by direction
+road dominance by direction
+visual enclosure by direction
+sky openness by direction
+```
+
+---
+
+## Output formats
+
+Recommended outputs:
+
+```text
+CSV
+GeoJSON
+GeoPackage
+PNG mask preview
+HTML report
+optional raster/heatmap output
+```
+
+Recommended point/sector attributes:
+
+```text
+image_id
+source
+timestamp
+camera_type
+is_360
+longitude
+latitude
+heading
+sector_id
+azimuth_from
+azimuth_to
+model_name
+model_type
+model_version
+classes_detected
+vegetation_pct
+road_pct
+sidewalk_pct
+building_pct
+terrain_pct
+sky_pct
+car_pct
+person_pct
+dominant_class
+valid_pixel_count
+ignored_pixel_count
+```
+
+---
+
+## Possible first proof of concept
+
+A realistic first PoC should be small.
+
+Suggested scope:
+
+```text
+Input:
+- folder with 10-50 geotagged images
+- preferably some 360° panoramas
+- semantic segmentation model
+- optional simple config file
+
+Process:
+- read image metadata
+- run semantic segmentation
+- calculate class percentages
+- write CSV
+- write GeoJSON point layer
+- create preview masks
+
+Output:
+- results.csv
+- results.geojson
+- preview_masks/
+- simple HTML summary
+```
+
+Second step:
+
+```text
+Add 360° sector splitting and sector-based GeoJSON output.
+```
+
+Third step:
+
+```text
+Aggregate results to street segments or hex grid.
+```
+
+---
+
+## Suggested folder structure for future module
+
+```text
+cvc_streetview_gis/
+  README.md
+  requirements.txt
+  src/
+    cvc_streetview/
+      __init__.py
+      metadata.py
+      segmentation.py
+      statistics.py
+      panorama.py
+      sectors.py
+      export.py
+      cli.py
+  sample_data/
+    README.md
+  docs/
+    concept.md
+    methodology.md
+  output/
+    .gitkeep
+```
+
+`output/` should be ignored in `.gitignore`.
+
+---
+
+## Risks and limitations
+
+Important limitations:
+
+- semantic segmentation classes may not match local GIS/nature needs,
+- water may not be reliable,
+- seasonal effects can strongly influence vegetation visibility,
+- weather and lighting matter,
+- camera height matters,
+- car-based photos and pedestrian photos produce different perception,
+- 360° stitching artifacts may influence segmentation,
+- privacy and faces/license plate handling may be needed,
+- third-party imagery licenses must be checked,
+- interpolation must be described as perceived visual index, not objective land cover.
+
+---
+
+## Privacy and ethics
+
+Street-level imagery may contain:
+
+- faces,
+- license plates,
+- private properties,
+- people,
+- sensitive locations.
+
+For a public repository:
+
+- do not include real street-level imagery unless license and privacy are clear,
+- use synthetic or heavily anonymized samples,
+- avoid publishing exact sensitive locations if not needed,
+- document limitations and privacy handling.
+
+---
+
+## Relationship to existing CVC roadmap
+
+This should not replace the main CVC detection/tracking tools.
+
+It should be treated as a separate future module:
+
+```text
+CVC StreetView GIS
+```
+
+Relationship:
+
+```text
+CVC Images:
+image object counting and AOI analysis
+
+CVC Video:
+object tracking, zones, line crossings and events
+
+CVC StreetView GIS:
+geotagged image semantic statistics and human-view mapping
+
+CVC Lab:
+experimental model backends, SAM, RF-DETR, alternative segmentation
+```
+
+---
+
+## Strategic value
+
+This could become one of the most original CVC/GIS ideas.
+
+Reason:
+
+```text
+Many tools detect objects.
+Fewer tools map how people visually experience space using geotagged semantic segmentation.
+```
+
+The strongest angle:
+
+```text
+Computer vision + GIS + perceived landscape / urban experience
+```
+
+This is close to Green View Index thinking, but could be adapted to local data, own 360° camera imagery and QGIS workflows.
+
+---
+
+## Short summary
+
+CVC StreetView GIS would process many geotagged street-level images or 360° panoramas, calculate semantic class percentages for each image or direction sector, and turn those values into GIS layers and maps.
+
+It would help answer:
+
+```text
+How green does this street feel?
+How dominant are roads and hard surfaces?
+How enclosed is the street by buildings?
+How much sky is visible?
+How does the city look from a human perspective?
+```
+
+This is not classic object counting. It is visual landscape analysis from street-level imagery.
+
+The 360° camera makes the concept much stronger, because it reduces direction bias and allows full-view or sector-based analysis around each observation point.
